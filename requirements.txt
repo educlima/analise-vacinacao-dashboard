@@ -1,0 +1,12 @@
+Django==5.0.1
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+pandas==2.2.0
+requests==2.31.0
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+python-decouple==3.8
+plotly==5.18.0
+openpyxl==3.1.2
+python-pptx==0.6.21
+Pillow==10.1.0

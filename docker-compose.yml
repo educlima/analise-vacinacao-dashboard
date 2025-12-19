@@ -1,0 +1,27 @@
+name: analise-vacinacao
+
+services:
+  web:
+    build: .
+    container_name: analise_vacinacao
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-vaccine-analysis-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - DATABASE_URL=sqlite:////app/db.sqlite3
+    stdin_open: true
+    tty: true
+    networks:
+      - vaccine_network
+
+volumes:
+  postgres_data:
+
+networks:
+  vaccine_network:
+    driver: bridge

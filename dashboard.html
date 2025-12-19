@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analise de Vacinação</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        select, input[type="text"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #764ba2;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .chart-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .chart-options {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .chart-btn {
+            padding: 8px 15px;
+            background: #ddd;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        
+        .chart-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .chart-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        #comparativeChart, #countryChart, #stateChart, #deathsChart {
+            width: 100%;
+            height: 400px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Analise de Vacinação</h1>
+            <p class="subtitle">Comparativo Brasil, Portugal, Itália e EUA</p>
+        </header>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="chartType">Tipo de Gráfico:</label>
+                <select id="chartType">
+                    <option value="bar">Barras</option>
+                    <option value="line">Linhas</option>
+                    <option value="pie">Pizza</option>
+                    <option value="scatter">Dispersão</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="metricType">Métrica:</label>
+                <select id="metricType">
+                    <option value="vaccinated">Vacinados</option>
+                    <option value="deaths">Óbitos</option>
+                    <option value="both">Ambos</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="countryFilter">País:</label>
+                <select id="countryFilter">
+                    <option value="all">Todos</option>
+                    <option value="brasil">Brasil</option>
+                    <option value="portugal">Portugal</option>
+                    <option value="italia">Itália</option>
+                    <option value="usa">EUA</option>
+                </select>
+            </div>
+            
+            <div class="buttons">
+                <button onclick="updateDashboard()">Atualizar Dados</button>
+                <button onclick="exportDataCSV()">Exportar CSV</button>
+                <button onclick="downloadPowerPoint()">Download PowerPoint</button>
+                <button onclick="openCSVUploadDialog()">Importar CSV</button>
+            </div>
+        </div>
+        
+        <input type="file" id="csvFileInput" style="display: none;" accept=".csv" onchange="handleCSVUpload()">
+        
+        <div class="stats" id="stats"></div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">Comparativo entre Países</div>
+                <div id="comparativeChart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Evolução Temporal</div>
+                <div id="countryChart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Dados por Estado/Região</div>
+                <div id="stateChart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Comparativo de Óbitos</div>
+                <div id="deathsChart"></div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Dados obtidos de APIs públicas. Última atualização: <span id="lastUpdate"></span></p>
+        </footer>
+    </div>
+    
+    <script>
+        const API_BASE = "/api";
+        let currentData = {};
+        
+        async function loadCountriesData() {
+            try {
+                const country = document.getElementById("countryFilter").value;
+                const countries = country === "all" 
+                    ? ["brasil", "portugal", "italia", "usa"]
+                    : [country];
+                
+                const response = await axios.get(`${API_BASE}/countries-data/`, {
+                    params: { countries: countries }
+                });
+                
+                updateStatsCards(response.data);
+                createComparativeChart(response.data);
+                createDeathsChart(response.data);
+            } catch (error) {
+                showError("Erro ao carregar dados dos países");
+                console.error(error);
+            }
+        }
+        
+        async function loadChartData() {
+            try {
+                const country = document.getElementById("countryFilter").value;
+                const selectedCountry = country === "all" ? "brasil" : country;
+                
+                const response = await axios.get(`${API_BASE}/chart-data/`, {
+                    params: { country: selectedCountry }
+                });
+                
+                createEvolutionChart(response.data);
+            } catch (error) {
+                showError("Erro ao carregar dados de evolução");
+                console.error(error);
+            }
+        }
+        
+        async function loadStateData() {
+            try {
+                const country = document.getElementById("countryFilter").value;
+                const selectedCountry = country === "all" ? "brasil" : country;
+                
+                const response = await axios.get(`${API_BASE}/state-data/`, {
+                    params: { country: selectedCountry }
+                });
+                
+                if (response.data && response.data.length > 0) {
+                    createStateChart(response.data);
+                } else {
+                    showError("Nenhum dado disponível para estados");
+                }
+            } catch (error) {
+                showError("Erro ao carregar dados por estado");
+                console.error(error);
+            }
+        }
+        
+        function updateStatsCards(data) {
+            const statsContainer = document.getElementById("stats");
+            statsContainer.innerHTML = "";
+            
+            if (!data || data.length === 0) {
+                statsContainer.innerHTML = "<p>Nenhum dado disponível</p>";
+                return;
+            }
+            
+            data.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "stat-card";
+                card.innerHTML = `
+                    <div class="stat-label">${item.country.toUpperCase()}</div>
+                    <div class="stat-value">${formatNumber(item.vaccinated || 0)}</div>
+                    <div class="stat-label">Vacinados</div>
+                    <hr style="margin: 10px 0; opacity: 0.3;">
+                    <div class="stat-value" style="color: #ff6b6b;">${formatNumber(item.deaths || 0)}</div>
+                    <div class="stat-label">Óbitos</div>
+                `;
+                statsContainer.appendChild(card);
+            });
+        }
+        
+        function createComparativeChart(data) {
+            const chartType = document.getElementById("chartType").value;
+            const metric = document.getElementById("metricType").value;
+            
+            if (!data || data.length === 0) return;
+            
+            const countries = data.map(d => d.country.toUpperCase());
+            let trace1, trace2;
+            
+            if (metric === "vaccinated" || metric === "both") {
+                trace1 = {
+                    x: countries,
+                    y: data.map(d => d.vaccinated || 0),
+                    name: "Vacinados",
+                    type: chartType === "pie" ? "pie" : "bar",
+                    marker: { color: "#667eea" },
+                    text: data.map(d => formatNumber(d.vaccinated || 0)),
+                    textposition: "auto",
+                    hovertemplate: "%{x}<br>Vacinados: %{text}<extra></extra>"
+                };
+            }
+            
+            if (metric === "deaths" || metric === "both") {
+                trace2 = {
+                    x: countries,
+                    y: data.map(d => d.deaths || 0),
+                    name: "Óbitos",
+                    type: chartType === "pie" ? "pie" : "bar",
+                    marker: { color: "#ff6b6b" },
+                    text: data.map(d => formatNumber(d.deaths || 0)),
+                    textposition: "auto",
+                    hovertemplate: "%{x}<br>Óbitos: %{text}<extra></extra>"
+                };
+            }
+            
+            const traces = [trace1, trace2].filter(t => t);
+            
+            const layout = {
+                title: "Comparativo entre Países",
+                xaxis: { title: "País" },
+                yaxis: { title: "Quantidade" },
+                barmode: "group",
+                hovermode: "closest",
+                margin: { t: 40, b: 40, l: 60, r: 40 }
+            };
+            
+            if (chartType === "pie") {
+                layout.title = metric === "vaccinated" ? "Distribuição de Vacinados" : "Distribuição de Óbitos";
+            }
+            
+            Plotly.newPlot("comparativeChart", traces, layout, { responsive: true });
+        }
+        
+        function createDeathsChart(data) {
+            if (!data || data.length === 0) return;
+            
+            const countries = data.map(d => d.country.toUpperCase());
+            const deaths = data.map(d => d.deaths || 0);
+            const vaccinated = data.map(d => d.vaccinated || 0);
+            
+            // Calcular taxa de mortalidade (óbitos por 100k vacinados)
+            const mortalityRate = vaccinated.map((v, i) => v > 0 ? (deaths[i] / v * 100000).toFixed(2) : 0);
+            
+            const trace1 = {
+                x: countries,
+                y: deaths,
+                name: "Total de Óbitos",
+                type: "bar",
+                marker: { color: "#ff6b6b" },
+                text: deaths.map(d => formatNumber(d)),
+                textposition: "auto",
+                yaxis: "y1"
+            };
+            
+            const trace2 = {
+                x: countries,
+                y: mortalityRate,
+                name: "Taxa por 100k",
+                type: "line",
+                marker: { color: "#ff9999" },
+                yaxis: "y2"
+            };
+            
+            const layout = {
+                title: "Comparativo de Óbitos",
+                xaxis: { title: "País" },
+                yaxis: { title: "Total de Óbitos", titlefont: { color: "#ff6b6b" } },
+                yaxis2: { title: "Taxa por 100k Vacinados", titlefont: { color: "#ff9999" }, overlaying: "y", side: "right" },
+                hovermode: "x unified",
+                margin: { t: 40, b: 40, l: 60, r: 100 }
+            };
+            
+            Plotly.newPlot("deathsChart", [trace1, trace2], layout, { responsive: true });
+        }
+        
+        function createEvolutionChart(data) {
+            const chartType = document.getElementById("chartType").value;
+            
+            if (!data || data.length === 0) return;
+            
+            const dates = [...new Set(data.map(d => d.date))].sort();
+            
+            const vaccinated = dates.map(date => {
+                const item = data.find(d => d.date === date);
+                return item ? (item.vaccinated || 0) : 0;
+            });
+            
+            const deaths = dates.map(date => {
+                const item = data.find(d => d.date === date);
+                return item ? (item.deaths || 0) : 0;
+            });
+            
+            const trace1 = {
+                x: dates,
+                y: vaccinated,
+                name: "Vacinados",
+                type: chartType,
+                mode: chartType === "scatter" ? "markers+lines" : undefined,
+                marker: { color: "#667eea" },
+                text: vaccinated.map(v => formatNumber(v)),
+                hovertemplate: "%{x}<br>Vacinados: %{text}<extra></extra>"
+            };
+            
+            const trace2 = {
+                x: dates,
+                y: deaths,
+                name: "Óbitos",
+                type: chartType,
+                mode: chartType === "scatter" ? "markers+lines" : undefined,
+                marker: { color: "#ff6b6b" },
+                text: deaths.map(d => formatNumber(d)),
+                hovertemplate: "%{x}<br>Óbitos: %{text}<extra></extra>"
+            };
+            
+            const layout = {
+                title: "Evolução Temporal",
+                xaxis: { title: "Data" },
+                yaxis: { title: "Quantidade" },
+                hovermode: "x unified",
+                margin: { t: 40, b: 40, l: 60, r: 40 }
+            };
+            
+            Plotly.newPlot("countryChart", [trace1, trace2], layout, { responsive: true });
+        }
+        
+        function createStateChart(data) {
+            if (!data || data.length === 0) return;
+            
+            // Limitar a 10 estados/regiões para melhor visualização
+            const topStates = data.slice(0, 10);
+            
+            const trace1 = {
+                x: topStates.map(d => d.state),
+                y: topStates.map(d => d.vaccinated || 0),
+                name: "Vacinados",
+                type: "bar",
+                marker: { color: "#667eea" },
+                text: topStates.map(d => formatNumber(d.vaccinated || 0)),
+                textposition: "auto"
+            };
+            
+            const trace2 = {
+                x: topStates.map(d => d.state),
+                y: topStates.map(d => d.deaths || 0),
+                name: "Óbitos",
+                type: "bar",
+                marker: { color: "#ff6b6b" },
+                text: topStates.map(d => formatNumber(d.deaths || 0)),
+                textposition: "auto"
+            };
+            
+            const layout = {
+                title: "Dados por Estado/Região (Top 10)",
+                xaxis: { title: "Estado/Região" },
+                yaxis: { title: "Quantidade" },
+                barmode: "group",
+                hovermode: "x",
+                margin: { t: 40, b: 120, l: 60, r: 40 }
+            };
+            
+            Plotly.newPlot("stateChart", [trace1, trace2], layout, { responsive: true });
+        }
+        
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + "M";
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1) + "K";
+            }
+            return num.toString();
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById("error");
+            errorDiv.textContent = message;
+            errorDiv.style.display = "block";
+            setTimeout(() => {
+                errorDiv.style.display = "none";
+            }, 5000);
+        }
+        
+        async function updateDashboard() {
+            await loadCountriesData();
+            await loadChartData();
+            await loadStateData();
+            document.getElementById("lastUpdate").textContent = new Date().toLocaleString("pt-BR");
+        }
+        
+        function exportDataCSV() {
+            window.location.href = "/api/export-csv/";
+        }
+        
+        function downloadPowerPoint() {
+            console.log("[v0] Iniciando download do PowerPoint");
+            axios.get("/api/export-powerpoint/", {
+                responseType: 'blob'
+            })
+            .then(response => {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `analise_vacinacao_${new Date().getTime()}.pptx`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                alert("PowerPoint gerado com sucesso!");
+            })
+            .catch(error => {
+                console.error("[v0] Erro ao baixar PowerPoint:", error);
+                showError("Erro ao gerar PowerPoint. Tente novamente.");
+            });
+        }
+        
+        function openCSVUploadDialog() {
+            document.getElementById('csvFileInput').click();
+        }
+        
+        function handleCSVUpload() {
+            const fileInput = document.getElementById('csvFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const countryName = prompt("Digite o nome do país (ex: Japão, Coréia, Alemanha):");
+            if (!countryName) {
+                fileInput.value = '';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('country', countryName);
+            
+            axios.post('/api/upload-csv/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            })
+            .then(response => {
+                if (response.data.success) {
+                    alert(`Sucesso! ${response.data.imported_count} registros importados para ${countryName}`);
+                    updateDashboard();
+                    fileInput.value = '';
+                } else {
+                    showError(response.data.message || "Erro ao importar arquivo");
+                }
+            })
+            .catch(error => {
+                console.error("[v0] Erro ao fazer upload:", error);
+                showError(`Erro ao importar CSV: ${error.response?.data?.error || error.message}`);
+                fileInput.value = '';
+            });
+        }
+        
+        // Event listeners
+        document.getElementById("chartType").addEventListener("change", updateDashboard);
+        document.getElementById("metricType").addEventListener("change", updateDashboard);
+        document.getElementById("countryFilter").addEventListener("change", updateDashboard);
+        
+        // Carregar dados ao inicializar
+        updateDashboard();
+    </script>
+</body>
+</html>
