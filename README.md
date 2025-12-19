@@ -331,4 +331,4 @@ MIT License
 ---
 
 **Versão:** 2.0.0 (Docker Simplificado)
-**Status:** Pronto para usar
+
